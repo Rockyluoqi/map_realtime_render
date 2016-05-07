@@ -1,0 +1,12 @@
+{
+  "x": 295,
+  "y": 2510,
+  "angle":0.785,
+  "mapInfo": {
+    "gridHeight": 3000,
+    "gridWidth": 3000,
+    "originX": -34.4,
+    "originY": -24.8,
+    "resolution": 0.05000000074505806
+  }
+}

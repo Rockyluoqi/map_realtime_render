@@ -1,0 +1,19 @@
+#buttonWrapper {
+  position: absolute;
+  width: 100px;
+  top: 30px;
+  left: 40px;
+}
+
+#cp {
+  width: 200px;
+  height:50px;
+  padding: 4px;
+  margin-bottom: 10px;
+}
+
+#tpp {
+  width: 200px;
+  height: 50px;
+  padding: 4px;
+}
