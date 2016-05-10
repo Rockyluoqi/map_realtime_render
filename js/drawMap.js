@@ -1,33 +1,71 @@
 /**
- * Created by Luoqi on 5/4/2016.
+ * Created by Rocky on 5/4/2016.
  */
 
 var renderer = null;
 var stage = null;
+//show map data
 var map_layer = new PIXI.Graphics();
+//show real-time laser data
 var laser_layer = new PIXI.Graphics();
 var tempGraphics = null;
 var polygon = null;
 var a = new Array(8);
 var robotHeight,robotWidth;
 var robotData;
+var mapData;
+var laserData;
+
+var testRotation = 0;
 
 //switch perspective to robot
 document.getElementById('rp').addEventListener('click',function() {
   if(robotData != null && stage != null) {
     stage.pivot = new PIXI.Point(robotData.x,robotData.mapInfo.gridHeight - robotData.y);
-    stage.position = new PIXI.Point(robotData.x+200,robotData.mapInfo.gridHeight - robotData.y+200);
-    stage.rotation = -robotData.angle;
+    //stage.position = new PIXI.Point(robotData.x+200,robotData.mapInfo.gridHeight - robotData.y+200);
+    stage.position = new PIXI.Point(window.innerWidth/2,window.innerHeight/2);
+    stage.rotation = -robotData.angle-0.1;
+    console.log(stage.scale);
+    robotData.angle += 0.2;
+    //robotData.y += 10;
+    drawRobot(robotData, "laser");
+    draw(mapData,0x000000,'map');
+    draw(laserData,0xFF0000,'laser');
   }
 });
 
 //switch perspective to the third person perspective
-document.getElementById('tpp').addEventListener('click',function() {
+document.getElementById('tpp').addEventListener('click',function(){
   if(robotData != null && stage != null) {
     stage.pivot = new PIXI.Point(robotData.x,robotData.mapInfo.gridHeight - robotData.y);
     stage.position = new PIXI.Point(robotData.x,robotData.mapInfo.gridHeight - robotData.y);
     stage.rotation = 0;
   }
+});
+
+
+document.getElementById('zoomIn').addEventListener('click', function () {
+  console.log("zoomIn");
+  console.log(stage.scale.x);
+  if(stage.scale.x < 4) {
+    stage.scale.x += 0.1;
+    stage.scale.y += 0.1;
+  }
+  drawRobot(robotData, "laser");
+  draw(mapData,0x000000,'map');
+  draw(laserData,0xFF0000,'laser');
+});
+
+document.getElementById('zoomOut').addEventListener('click', function () {
+  console.log("zoomOut");
+  console.log(stage.scale.x);
+  if(stage.scale.x > 0.1) {
+    stage.scale.x -= 0.1;
+    stage.scale.y -= 0.1;
+  }
+  drawRobot(robotData, "laser");
+  draw(mapData,0x000000,'map');
+  draw(laserData,0xFF0000,'laser');
 });
 
 function drawRobot(data,whichLayer) {
@@ -37,7 +75,11 @@ function drawRobot(data,whichLayer) {
   //console.log(sessionStorage.getItem("laser_data"));
   //var laser_data = JSON.parse(sessionStorage.getItem("laser_data"));
   if(renderer === null) {
-    renderer = new PIXI.autoDetectRenderer(data.mapInfo.gridWidth, data.mapInfo.gridHeight, {
+    //renderer = new PIXI.autoDetectRenderer(data.mapInfo.gridWidth, data.mapInfo.gridHeight, {
+    //  backgroundColor: 0xFFFFFF,
+    //  antialias: true
+    //});
+    renderer = new PIXI.autoDetectRenderer(window.innerWidth, window.innerHeight, {
       backgroundColor: 0xFFFFFF,
       antialias: true
     });
@@ -49,18 +91,21 @@ function drawRobot(data,whichLayer) {
 
   if(stage === null) {
     stage = new PIXI.Container();
-    console.log(stage.pivot);
+    stage.pivot = new PIXI.Point(robotData.x,robotData.mapInfo.gridHeight - robotData.y);
+    //stage.position = new PIXI.Point(robotData.x+200,robotData.mapInfo.gridHeight - robotData.y+200);
+    stage.position = new PIXI.Point(window.innerWidth/2,window.innerHeight/2);
+    stage.rotation = -robotData.angle;
+    //console.log(stage.pivot);
     stage.interactive = true;
     //stage.pivot = new PIXI.Point(0, 0);
   }
 
-  //if(whichLayer === "map") {
-  //  //stage.removeChildren();
-  //  map_layer.clear();
-  //}
-  //if(whichLayer === "laser") {
-  //  laser_layer.clear();
-  //}
+  if(whichLayer === "map") {
+    map_layer.clear();
+  }
+  if(whichLayer === "laser") {
+    laser_layer.clear();
+  }
 
   robotHeight = 18;
   robotWidth = 10;
@@ -111,7 +156,11 @@ function draw(data,color,whichLayer) {
     //console.log(sessionStorage.getItem("laser_data"));
     //var laser_data = JSON.parse(sessionStorage.getItem("laser_data"));
     if(renderer === null) {
-      renderer = new PIXI.autoDetectRenderer(data.mapInfo.gridWidth, data.mapInfo.gridHeight, {
+      //renderer = new PIXI.autoDetectRenderer(data.mapInfo.gridWidth, data.mapInfo.gridHeight, {
+      //  backgroundColor: 0xFFFFFF,
+      //  antialias: true
+      //});
+      renderer = new PIXI.autoDetectRenderer(window.innerWidth, window.innerHeight, {
         backgroundColor: 0xFFFFFF,
         antialias: true
       });
@@ -126,13 +175,20 @@ function draw(data,color,whichLayer) {
       stage.interactive = true;
     }
 
+  if(whichLayer === "map") {
+    mapData = data;
+  }
+  if(whichLayer === "laser") {
+    laserData = data;
+  }
+
+
   //if(whichLayer === "map") {
-    //  //stage.removeChildren();
-    //  map_layer.clear();
-    //}
-    //if(whichLayer === "laser") {
-    //  laser_layer.clear();
-    //}
+  //  map_layer.clear();
+  //}
+  //if(whichLayer === "laser") {
+  //  laser_layer.clear();
+  //}
 
     console.log(data);
     //var data_set = transDataIndex(data);
@@ -208,21 +264,24 @@ function getData() {
 
   $.getJSON('./asset/robot_data.json',function(data,status,err){
     console.log(data);
-    drawRobot(data, 'laser');
-    animate();
+    drawRobot(data, 'map');
+    //animate();
   });
   $.getJSON('./asset/laser_data.json',function(data,status,err){
     //sessionStorage.setItem("laser_data", JSON.stringify(data));
+    laserData = data;
     draw(data,0xFF0000,'laser');
-    animate();
+    //animate();
   });
-  $.getJSON('./asset/scan_map_data.json',function(data,status,err){
+  $.getJSON('./asset/scan_map_data.json', function (data, status, err) {
     //sessionStorage.setItem("laser_data", JSON.stringify(data));
     data.data = transDataIndex(data);
-    draw(data,0x000000);
+    mapData = data;
+    draw(data, 0x000000);
     //console.log();
     animate();
   });
+
   //setInterval(function () {
   //  $.getJSON('http://localhost:8888/laserData', function (data, status, err) {
   //    console.log(data);
