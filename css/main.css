@@ -18,6 +18,12 @@
   padding: 4px;
 }
 
+#mapNameInput {
+  position: fixed;
+  top: -1000px;
+  left: -1000px;
+}
+
 /*#button{*/
   /*text-align:center;*/
   /*margin:170px auto;*/

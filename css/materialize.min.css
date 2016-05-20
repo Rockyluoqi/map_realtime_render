@@ -7998,9 +7998,6 @@ button.btn-floating {
 }
 
 .fixed-action-btn {
-    position: fixed;
-    right: 23px;
-    bottom: 23px;
     padding-top: 15px;
     margin-bottom: 0;
     z-index: 998
@@ -8011,17 +8008,16 @@ button.btn-floating {
 }
 
 .fixed-action-btn.horizontal {
-    padding: 0 0 0 15px
+    padding: 0 0 0 0px
 }
 
 .fixed-action-btn.horizontal ul {
     text-align: right;
-    right: 64px;
-    top: 50%;
+    top: 400px;
     -webkit-transform: translateY(-50%);
     transform: translateY(-50%);
     height: 100%;
-    left: initial;
+    left: 2px;
     width: 500px
 }
 

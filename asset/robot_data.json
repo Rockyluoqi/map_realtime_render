@@ -1,6 +1,8 @@
 {
-  "x": 295,
-  "y": 2510,
+  "gridPosition": {
+    "x":295,
+    "y":2510
+  },
   "angle":0.785,
   "mapInfo": {
     "gridHeight": 3000,

@@ -6,6 +6,8 @@
  * Because the page need render many times and the data will be achieved many times,
  * so you need many global variables to reduce the resource consume.
  */
+var fs = require('fs');
+
 var renderer = null;
 var stage = null;
 //show map data
@@ -27,6 +29,8 @@ var laserData;
 var isRp;
 var isTp;
 
+var $mapNameInput = $('#mapNameInput');
+
 var testRotation = 0;
 var host = "http://192.168.1.88:8080";
 var mapDataUrl = "/gs-robot/real_time_data/scan_map_data";
@@ -34,8 +38,35 @@ var positionDataUrl = "/gs-robot/real_time_data/scan_init_point_data";
 var robotPositionUrl = "/gs-robot/real_time_data/position";
 var laserDataUrl = "/gs-robot/real_time_data/laser_phit";
 var _backgroundColor = "0xC7EDCC";
-var startScanURL = "";
-var terminateScanURL = "";
+var startScanUrl = "/gs-robot/cmd/start_scan_map?map_name=";
+var stopScanUrl = "/gs-robot/cmd/stop_scan_map";
+var stopAndDeleteUrl = "/gs-robot/cmd/cancel_scan_map";
+var getImageUrl = "/gs-robot/data/map_png?map_name=";
+var mapSpirte;
+var mapWidth, mapHeight ;
+
+//read config json file named ipConfig.json using Node filesystem module
+function readConfig() {
+  fs.readFile("config.json","utf-8",function(error, fileData){
+    console.log("error "+error);
+    //save in localStorage for sharing the json data among javascript files.
+
+    var object = JSON.parse(fileData);
+    console.log(object);
+
+    //init variables from config.json
+    host = object.host;
+
+    getImageUrl = host + object.getImageUrl;
+    mapDataUrl = host + object.mapDataUrl;
+    positionDataUrl = host + object.positionDataUrl;
+    robotPositionUrl = host + object.robotPositionUrl;
+    laserDataUrl = host + object.laserDataUrl;
+    startScanUrl = host + object.startScanUrl;
+    stopScanUrl = host + object.stopScanUrl;
+    stopAndDeleteUrl = host + object.stopAndDeleteUrl;
+  });
+}
 
 //switch perspective to robot
 document.getElementById('rp').addEventListener('click', function () {
@@ -61,29 +92,115 @@ document.getElementById('tpp').addEventListener('click', function () {
     stage.rotation = 0;
   }
 });
-var isStop = false;
+
 document.getElementById('on').addEventListener('click',function() {
-  isStop = false;
-  getData();
+  $mapNameInput.css("top", 161 + "px");
+  $mapNameInput.css("left", 100 + "px");
+});
+
+var mapName = "";
+document.getElementById('okBtn').addEventListener('click',function() {
+  mapName = $('#mapName').val();
+  $mapNameInput.css("top", -1000 + "px");
+  $mapNameInput.css("left",-1000 + "px");
+  console.log(startScanUrl+mapName);
   $.ajax({
-    url: startScanURL,
+    url: startScanUrl+mapName,
     type: "GET",
     success: function (data) {
-      console.log(data);
+      var object = JSON.parse(data);
+      if(object.successed) {
+        Materialize.toast('Start scan',5000);
+        if(stage) {
+          if (stage.children.length > 0) {
+            stage.removeChildren();
+          }
+        }
+        getData();
+      } else {
+        toastError(object.errorCode);
+      }
     }
   });
 });
 
-document.getElementById('off').addEventListener('click',function() {
-  isStop = true;
+function clearLayers() {
+  map_layer.clear();
+  laser_layer.clear();
+  position_layer.clear();
+  robot_layer.clear();
+}
+
+document.getElementById('cancelBtn').addEventListener('click',function() {
+  $mapNameInput.css("top", -1000 + "px");
+  $mapNameInput.css("left",-1000 + "px");
+});
+
+var mapTexture = null;
+
+document.getElementById('stopAndSave').addEventListener('click', function () {
+  clearInterval(interval_1);
+  clearInterval(interval_2);
+  clearInterval(interval_3);
+  clearInterval(interval_4);
+  console.log(stopScanUrl);
   $.ajax({
-    url: terminateScanURL,
+    url: stopScanUrl,
     type: "GET",
     success: function (data) {
       console.log(data);
+      var object = JSON.parse(data);
+      if(object.successed) {
+        Materialize.toast('Stop scanning and save the file. ',5000);
+        clearLayers();
+        stage.removeChildren();
+
+        // var image = new Image();
+        // image.src = getImageUrl + mapName;
+        // image.onload = function() {
+        mapTexture = new PIXI.Texture.fromImage(getImageUrl + mapName);
+        mapSpirte = new PIXI.Sprite(mapTexture);
+
+        setTimeout(function() {
+          renderer.resize(mapWidth, mapHeight);
+          //make the rotation to normal
+          stage.rotation = 0;
+          stage.addChild(mapSpirte);
+          renderer.render(stage);
+          requestAnimationFrame(animate);
+        },5000);
+      } else {
+        toastError('Stop and save failed');
+        toastError(object.errorCode);
+      }
     }
   });
 });
+
+document.getElementById('stopAndDelete').addEventListener('click', function () {
+  clearInterval(interval_1);
+  clearInterval(interval_2);
+  clearInterval(interval_3);
+  clearInterval(interval_4);
+  $.ajax({
+    url: stopAndDeleteUrl,
+    type: "GET",
+    success: function (data) {
+      var object = JSON.parse(data);
+      if(object.successed) {
+        Materialize.toast('Stop scanning and delete the file.',5000);
+      } else {
+        toastError('Stop and delete failed');
+        toastError(object.errorCode);
+      }
+    }
+  });
+});
+
+function toastError(string) {
+  var text =  "<span style='color: #ff0000;font-size: 25px'>"+string+"</span></div>";
+  Materialize.toast(text,10000);
+}
 
 document.getElementById('zoomIn').addEventListener('click', function () {
   console.log("zoomIn");
@@ -128,6 +245,9 @@ function drawRobotSprite(robotData) {
     //append here is more efficient
     document.body.appendChild(renderer.view);
   }
+
+  mapHeight = robotData.mapInfo.gridHeight;
+  mapWidth = robotData.mapInfo.gridWidth;
 
   if (stage === null) {
     stage = new PIXI.Container();
@@ -267,8 +387,8 @@ function draw(data, color, whichLayer) {
   //var laser_data = JSON.parse(sessionStorage.getItem("laser_data"));
   if (renderer === null) {
     renderer = new PIXI.autoDetectRenderer(data.mapInfo.gridWidth, data.mapInfo.gridHeight, {
-     backgroundColor: _backgroundColor,
-     antialias: true
+      backgroundColor: _backgroundColor,
+      antialias: true
     });
     // renderer = new PIXI.autoDetectRenderer(3520, 4000, {
     //   backgroundColor: 0xFFFFFF,
@@ -384,8 +504,9 @@ function animate() {
   // renderer.render(stage);
   requestAnimationFrame(animate);
 }
-
+var interval_1,interval_2,interval_3,interval_4;
 function getData() {
+  console.log('getData');
   for (i = 0; i < 50000; i++) {
     var index = {x: 0, y: 0};
     data_xy_array.push(index);
@@ -412,66 +533,62 @@ function getData() {
   //   //console.log();
   //   animate();
   // });
+  interval_1 = setInterval(function () {
+    $.getJSON(robotPositionUrl, function (data, status, err) {
+      // console.log("angle: "+data.angle);
+      console.log(data);
+      //sessionStorage.setItem("laser_data", JSON.stringify(data));
+      drawRobotSprite(data);
+      //console.log();
+      renderer.render(stage);
+    });
+  }, 577);
 
-  if(isStop) {
-    setTimeout(function () {
-      setInterval(function () {
-        $.getJSON(host + robotPositionUrl, function (data, status, err) {
-          // console.log("angle: "+data.angle);
-          console.log(data);
-          //sessionStorage.setItem("laser_data", JSON.stringify(data));
-          drawRobotSprite(data);
-          //console.log();
-          renderer.render(stage);
-        });
-      }, 577);
+  // setInterval(function () {
+  //   $.getJSON(host + positionDataUrl, function (data, status, err) {
+  //     console.log('position data');
+  //     console.log(data);
+  //     //sessionStorage.setItem("laser_data", JSON.stringify(data));
+  //     // drawRobot(data);
+  //     //console.log();
+  //     renderer.render(stage);
+  //   });
+  // }, 1000);
 
-      // setInterval(function () {
-      //   $.getJSON(host + positionDataUrl, function (data, status, err) {
-      //     console.log('position data');
-      //     console.log(data);
-      //     //sessionStorage.setItem("laser_data", JSON.stringify(data));
-      //     // drawRobot(data);
-      //     //console.log();
-      //     renderer.render(stage);
-      //   });
-      // }, 1000);
+  interval_2 = setInterval(function () {
+    $.getJSON(laserDataUrl, function (data, status, err) {
+      //sessionStorage.setItem("laser_data", JSON.stringify(data));
+      draw(data, 0xff0000, "laser");
+      fs.write
+      //console.log();
+      renderer.render(stage);
+    });
+  }, 577);
+  // this interval time is special, this interval time of map layer
+  // can't be  divided with this time value.
+  interval_3 = setInterval(function () {
+    $.getJSON(mapDataUrl, function (data, status, err) {
+      console.log('map');
+      console.log(data);
+      //sessionStorage.setItem("laser_data", JSON.stringify(data));
+      transDataIndex(data);
+      draw(data, 0x000000, "map");
+      //renderer.render(stage);
+      //console.log();
+      renderer.render(stage);
+    });
+  }, 10000);
 
-      setInterval(function () {
-        $.getJSON(host + laserDataUrl, function (data, status, err) {
-          //sessionStorage.setItem("laser_data", JSON.stringify(data));
-          draw(data, 0xff0000, "laser");
-          //console.log();
-          renderer.render(stage);
-        });
-      }, 577);
+  interval_4 = setInterval(function () {
+    $.getJSON(positionDataUrl, function (data, status, err) {
+      console.log('position data');
+      console.log(data);
+      drawPositionPoint(data, "0x00FF00");
+      renderer.render(stage);
+    });
+  }, 10000);
 
-    }, 10000);
-
-    // this interval time is special, this interval time of map layer
-    // can't be  divided with this time value.
-    setInterval(function () {
-      $.getJSON(host + mapDataUrl, function (data, status, err) {
-        console.log('map');
-        console.log(data);
-        //sessionStorage.setItem("laser_data", JSON.stringify(data));
-        transDataIndex(data);
-        draw(data, 0x000000, "map");
-        //renderer.render(stage);
-        //console.log();
-        renderer.render(stage);
-      });
-    }, 10000);
-
-    setInterval(function () {
-      $.getJSON(host + positionDataUrl, function (data, status, err) {
-        console.log('position data');
-        console.log(data);
-        drawPositionPoint(data, "0x00FF00");
-        renderer.render(stage);
-      });
-    }, 10000);
-
-    requestAnimationFrame(animate);
-  }
+  requestAnimationFrame(animate);
 }
+
+readConfig();
